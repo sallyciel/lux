@@ -6,42 +6,6 @@ import (
 	"testing"
 )
 
-func TestGetStringFromJSON(t *testing.T) {
-	type args struct {
-		json string
-		path string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "json happy path test1",
-			args: args{
-				json: `{"name":{"first":"Janet","last":"Prichard"},"age":47}`,
-				path: "name.first",
-			},
-			want: "Janet",
-		},
-		{
-			name: "json happy path test2",
-			args: args{
-				json: `{"children": ["Sara","Alex","Jack"]}`,
-				path: "children.1",
-			},
-			want: "Alex",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GetStringFromJSON(tt.args.json, tt.args.path); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetStringFromJSON() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestMatchOneOf(t *testing.T) {
 	type args struct {
 		patterns []string
@@ -317,58 +281,6 @@ func TestFilePath(t *testing.T) {
 	}
 }
 
-func TestItemInSlice(t *testing.T) {
-	type args struct {
-		i    interface{}
-		list interface{}
-	}
-	tests := []struct {
-		name string
-		args args
-		want bool
-	}{
-		{
-			name: "int in slice test 1",
-			args: args{
-				i:    1,
-				list: []int{1, 2},
-			},
-			want: true,
-		},
-		{
-			name: "int in slice test 2",
-			args: args{
-				i:    1,
-				list: []int{2, 3},
-			},
-			want: false,
-		},
-		{
-			name: "string test 1",
-			args: args{
-				i:    "hello",
-				list: []string{"2", "hello"},
-			},
-			want: true,
-		},
-		{
-			name: "mix test 1",
-			args: args{
-				i:    3,
-				list: []string{"2", "3"},
-			},
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := ItemInSlice(tt.args.i, tt.args.list); got != tt.want {
-				t.Errorf("ItemInSlice() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestGetNameAndExt(t *testing.T) {
 	type args struct {
 		uri string
@@ -618,4 +530,36 @@ func TestParsingFile(t *testing.T) {
 			t.Errorf("Got: %v - want: %v", len(got), wanted)
 		}
 	})
+}
+
+func TestConvertXMLToSRT(t *testing.T) {
+	type args struct {
+		content []byte
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "youtube test",
+			args: args{
+				content: []byte(`<?xml version="1.0" encoding="utf-8" ?><timedtext><body><p t="0" d="1000">Hello</p><p t="1000" d="2000">World</p></body></timedtext>`),
+			},
+			want: "1\n00:00:00,000 --> 00:00:01,000\nHello\n\n2\n00:00:01,000 --> 00:00:03,000\nWorld\n\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ConvertXMLToSRT(tt.args.content)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ConvertXMLToSRT() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ConvertXMLToSRT() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

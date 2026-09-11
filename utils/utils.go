@@ -4,25 +4,92 @@ import (
 	"bufio"
 	"bytes"
 	"crypto/md5"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/url"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 
 	"github.com/iawia002/lux/request"
 )
 
-// GetStringFromJSON get the string value from json path
-func GetStringFromJSON(json, path string) string {
-	return gjson.Get(json, path).String()
+// ConvertXMLToSRT converts YouTube XML subtitles to SRT format
+func ConvertXMLToSRT(xmlContent []byte) (string, error) {
+	var data struct {
+		Body struct {
+			P []struct {
+				T    int    `xml:"t,attr"`
+				D    int    `xml:"d,attr"`
+				Text string `xml:",chardata"`
+				S    []struct {
+					T    int    `xml:"t,attr"`
+					Text string `xml:",chardata"`
+				} `xml:"s"`
+			} `xml:"p"`
+		} `xml:"body"`
+	}
+
+	if err := xml.Unmarshal(xmlContent, &data); err != nil {
+		return "", err
+	}
+
+	var srtBuilder strings.Builder
+	index := 1
+	for _, p := range data.Body.P {
+		startTime := formatSRTTime(p.T)
+		endTime := formatSRTTime(p.T + p.D)
+
+		// Handle text content
+		var text string
+		if len(p.S) > 0 {
+			for _, s := range p.S {
+				text += s.Text
+			}
+		} else {
+			text = p.Text
+		}
+		text = strings.TrimSpace(text)
+
+		// Skip empty lines
+		if text == "" {
+			continue
+		}
+
+		srtBuilder.WriteString(fmt.Sprintf("%d\n%s --> %s\n%s\n\n", index, startTime, endTime, text))
+		index++
+	}
+	return srtBuilder.String(), nil
+}
+
+// ConvertXMLFileToSRT converts XML subtitles file to SRT format
+func ConvertXMLFileToSRT(xmlPath string) (string, error) {
+	content, err := os.ReadFile(xmlPath)
+	if err != nil {
+		return "", err
+	}
+	srtContent, err := ConvertXMLToSRT(content)
+	if err != nil {
+		return "", err
+	}
+	srtPath := xmlPath[:len(xmlPath)-len("xml")] + "srt"
+	return srtPath, os.WriteFile(srtPath, []byte(srtContent), 0644)
+}
+
+func formatSRTTime(ms int) string {
+	hours := ms / 3600000
+	ms %= 3600000
+	minutes := ms / 60000
+	ms %= 60000
+	seconds := ms / 1000
+	ms %= 1000
+	return fmt.Sprintf("%02d:%02d:%02d,%03d", hours, minutes, seconds, ms)
 }
 
 // MatchOneOf match one of the patterns
@@ -68,7 +135,7 @@ func Domain(url string) string {
 	domainPattern := `([a-z0-9][-a-z0-9]{0,62})\.` +
 		`(com\.cn|com\.hk|` +
 		`cn|com|net|edu|gov|biz|org|info|pro|name|xxx|xyz|be|` +
-		`me|top|cc|tv|tt)`
+		`me|top|cc|tv|tt|vn)`
 	domain := MatchOneOf(url, domainPattern)
 	if domain != nil {
 		return domain[1]
@@ -158,35 +225,12 @@ func ParseInputFile(r io.Reader, items string, itemStart, itemEnd int) []string 
 
 	itemList := make([]string, 0, len(wantedItems))
 	for i, item := range temp {
-		if ItemInSlice(i+1, wantedItems) {
+		if slices.Contains(wantedItems, i+1) {
 			itemList = append(itemList, item)
 		}
 	}
 
 	return itemList
-}
-
-// ItemInSlice if a item is in the list
-func ItemInSlice(item, list interface{}) bool {
-	v1 := reflect.ValueOf(item)
-	v2 := reflect.ValueOf(list)
-	for i := 0; i < v2.Len(); i++ {
-		indexType := v2.Index(i).Type().String()
-		if v1.Type().String() != indexType {
-			continue
-		}
-		switch indexType {
-		case "int":
-			if v1.Int() == v2.Index(i).Int() {
-				return true
-			}
-		case "string":
-			if v1.String() == v2.Index(i).String() {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // GetNameAndExt return the name and ext of the URL

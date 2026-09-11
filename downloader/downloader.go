@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,11 +29,13 @@ type Options struct {
 	InfoOnly       bool
 	Silent         bool
 	Stream         string
+	AudioOnly      bool
 	Refer          string
 	OutputPath     string
 	OutputName     string
 	FileNameLength int
 	Caption        bool
+	EmbedSubtitle  bool
 
 	MultiThread  bool
 	ThreadNumber int
@@ -47,9 +50,13 @@ type Options struct {
 
 // Downloader is the default downloader.
 type Downloader struct {
-	bar    *pb.ProgressBar
+	Bar    *pb.ProgressBar
 	option Options
 }
+
+const (
+	DOWNLOAD_FILE_EXT = ".download"
+)
 
 func progressBar(size int64) *pb.ProgressBar {
 	tmpl := `{{counters .}} {{bar . "[" "=" ">" "-" "]"}} {{speed .}} {{percent . | green}} {{rtime .}}`
@@ -69,7 +76,6 @@ func New(option Options) *Downloader {
 
 // caption downloads danmaku, subtitles, etc
 func (downloader *Downloader) caption(url, fileName, ext string, transform func([]byte) ([]byte, error)) error {
-
 	refer := downloader.option.Refer
 	if refer == "" {
 		refer = url
@@ -109,7 +115,7 @@ func (downloader *Downloader) writeFile(url string, file *os.File, headers map[s
 	}
 	defer res.Body.Close() // nolint
 
-	barWriter := downloader.bar.NewProxyWriter(file)
+	barWriter := downloader.Bar.NewProxyWriter(file)
 	// Note that io.Copy reads 32kb(maximum) from input and writes them to output, then repeats.
 	// So don't worry about memory.
 	written, copyErr := io.Copy(barWriter, res.Body)
@@ -131,11 +137,11 @@ func (downloader *Downloader) save(part *extractors.Part, refer, fileName string
 	// Skip segment file
 	// TODO: Live video URLs will not return the size
 	if exists && fileSize == part.Size {
-		downloader.bar.Add64(fileSize)
+		downloader.Bar.Add64(fileSize)
 		return nil
 	}
 
-	tempFilePath := filePath + ".download"
+	tempFilePath := filePath + DOWNLOAD_FILE_EXT
 	tempFileSize, _, err := utils.FileSize(tempFilePath)
 	if err != nil {
 		return err
@@ -151,7 +157,7 @@ func (downloader *Downloader) save(part *extractors.Part, refer, fileName string
 		// range start from 0, 0-1023 means the first 1024 bytes of the file
 		headers["Range"] = fmt.Sprintf("bytes=%d-", tempFileSize)
 		file, fileError = os.OpenFile(tempFilePath, os.O_APPEND|os.O_WRONLY, 0644)
-		downloader.bar.Add64(tempFileSize)
+		downloader.Bar.Add64(tempFileSize)
 	} else {
 		file, fileError = os.Create(tempFilePath)
 	}
@@ -230,17 +236,17 @@ func (downloader *Downloader) multiThreadSave(dataPart *extractors.Part, refer, 
 	// Skip segment file
 	// TODO: Live video URLs will not return the size
 	if exists && fileSize == dataPart.Size {
-		downloader.bar.Add64(fileSize)
+		downloader.Bar.Add64(fileSize)
 		return nil
 	}
-	tmpFilePath := filePath + ".download"
+	tmpFilePath := filePath + DOWNLOAD_FILE_EXT
 	tmpFileSize, tmpExists, err := utils.FileSize(tmpFilePath)
 	if err != nil {
 		return err
 	}
 	if tmpExists {
 		if tmpFileSize == dataPart.Size {
-			downloader.bar.Add64(dataPart.Size)
+			downloader.Bar.Add64(dataPart.Size)
 			return os.Rename(tmpFilePath, filePath)
 		}
 
@@ -325,7 +331,7 @@ func (downloader *Downloader) multiThreadSave(dataPart *extractors.Part, refer, 
 		}
 	}
 	if savedSize > 0 {
-		downloader.bar.Add64(savedSize)
+		downloader.Bar.Add64(savedSize)
 		if savedSize == dataPart.Size {
 			return mergeMultiPart(filePath, parts)
 		}
@@ -358,7 +364,6 @@ func (downloader *Downloader) multiThreadSave(dataPart *extractors.Part, refer, 
 			} else {
 				chunkSize = int64(downloader.option.ChunkSizeMB) * 1024 * 1024
 			}
-			end = computeEnd(part.Cur, chunkSize, part.End)
 			remainingSize := part.End - part.Cur + 1
 			if part.Cur == part.Start {
 				// Only write part to new file.
@@ -388,8 +393,8 @@ func (downloader *Downloader) multiThreadSave(dataPart *extractors.Part, refer, 
 					temp += written
 					headers["Range"] = fmt.Sprintf("bytes=%d-%d", temp, end)
 				}
+				part.Cur = end + 1
 			}
-			part.Cur = end + 1
 		}(part)
 	}
 	wgp.Wait()
@@ -434,7 +439,7 @@ func readDirAllFilePart(filePath, filename, extname string) ([]*FilePartMeta, er
 			metas = append(metas, meta)
 		}
 	}
-	sort.Slice(metas, func(i, j int) bool {
+	sort.SliceStable(metas, func(i, j int) bool {
 		return metas[i].Index < metas[j].Index
 	})
 	return metas, nil
@@ -454,7 +459,7 @@ func parseFilePartMeta(filepath string, fileSize int64) (*FilePartMeta, error) {
 		return nil, errors.WithStack(err)
 	}
 	if readSize < size {
-		return nil, errors.Errorf("the file has been broked, please delete all part files and re-download")
+		return nil, errors.Errorf("the file has been broken, please delete all part files and re-download")
 	}
 	err = binary.Read(bytes.NewBuffer(buf[:size]), binary.LittleEndian, meta)
 	if err != nil {
@@ -470,7 +475,7 @@ func writeFilePartMeta(file *os.File, meta *FilePartMeta) error {
 }
 
 func mergeMultiPart(filepath string, parts []*FilePartMeta) error {
-	tempFilePath := filepath + ".download"
+	tempFilePath := filepath + DOWNLOAD_FILE_EXT
 	tempFile, err := os.OpenFile(tempFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return err
@@ -570,17 +575,60 @@ func (downloader *Downloader) Download(data *extractors.Data) error {
 		return errors.Errorf("no stream named %s", streamName)
 	}
 
+	if downloader.option.AudioOnly {
+		var isFound bool
+		reg, err := regexp.Compile("audio+")
+		if err != nil {
+			return err
+		}
+
+		for _, s := range sortedStreams {
+			// Looking for the best quality
+			if reg.MatchString(s.Quality) {
+				isFound = true
+				stream = data.Streams[s.ID]
+				break
+			}
+			for _, part := range s.Parts {
+				if part.Ext == "m4a" {
+					isFound = true
+					stream = data.Streams[s.ID]
+					break
+				}
+			}
+		}
+		if !isFound {
+			return errors.Errorf("No audio stream found")
+		}
+	}
+
 	if !downloader.option.Silent {
 		printStreamInfo(data, stream)
 	}
 
 	// download caption
+	var subtitlePaths []string
+	var subtitleLangs []string
+	var subtitleFilesToDelete []string
 	if downloader.option.Caption && data.Captions != nil {
 		fmt.Println("\nDownloading captions...")
 		for k, v := range data.Captions {
 			if v != nil {
 				fmt.Printf("Downloading %s ...\n", k)
-				downloader.caption(v.URL, title, v.Ext, v.Transform) // nolint
+				if err := downloader.caption(v.URL, title, v.Ext, v.Transform); err != nil {
+					// nolint
+				} else if downloader.option.EmbedSubtitle {
+					subtitlePath, _ := utils.FilePath(title, v.Ext, downloader.option.FileNameLength, downloader.option.OutputPath, true)
+					subtitleFilesToDelete = append(subtitleFilesToDelete, subtitlePath)
+					if strings.HasSuffix(v.Ext, "xml") {
+						if srtPath, err := utils.ConvertXMLFileToSRT(subtitlePath); err == nil {
+							subtitlePath = srtPath
+							subtitleFilesToDelete = append(subtitleFilesToDelete, srtPath)
+						}
+					}
+					subtitlePaths = append(subtitlePaths, subtitlePath)
+					subtitleLangs = append(subtitleLangs, k)
+				}
 			}
 		}
 	}
@@ -605,9 +653,9 @@ func (downloader *Downloader) Download(data *extractors.Data) error {
 		return nil
 	}
 
-	downloader.bar = progressBar(stream.Size)
+	downloader.Bar = progressBar(stream.Size)
 	if !downloader.option.Silent {
-		downloader.bar.Start()
+		downloader.Bar.Start()
 	}
 	if len(stream.Parts) == 1 {
 		// only one fragment
@@ -621,7 +669,19 @@ func (downloader *Downloader) Download(data *extractors.Data) error {
 		if err != nil {
 			return err
 		}
-		downloader.bar.Finish()
+		downloader.Bar.Finish()
+
+		if downloader.option.EmbedSubtitle && len(subtitlePaths) > 0 {
+			if !downloader.option.Silent {
+				fmt.Println("Embedding subtitles...")
+			}
+			if err := utils.EmbedSubtitles(mergedFilePath, subtitlePaths, subtitleLangs); err != nil {
+				return err
+			}
+			for _, path := range subtitleFilesToDelete {
+				os.Remove(path)
+			}
+		}
 		return nil
 	}
 
@@ -635,6 +695,10 @@ func (downloader *Downloader) Download(data *extractors.Data) error {
 			break
 		}
 
+		if downloader.option.AudioOnly && (part.Ext != "m4a") {
+			continue
+		}
+
 		partFileName := fmt.Sprintf("%s[%d]", title, index)
 		partFilePath, err := utils.FilePath(partFileName, part.Ext, downloader.option.FileNameLength, downloader.option.OutputPath, false)
 		if err != nil {
@@ -645,7 +709,12 @@ func (downloader *Downloader) Download(data *extractors.Data) error {
 		wgp.Add()
 		go func(part *extractors.Part, fileName string) {
 			defer wgp.Done()
-			err := downloader.save(part, data.URL, fileName)
+			var err error
+			if downloader.option.MultiThread {
+				err = downloader.multiThreadSave(part, data.URL, fileName)
+			} else {
+				err = downloader.save(part, data.URL, fileName)
+			}
 			if err != nil {
 				lock.Lock()
 				errs = append(errs, err)
@@ -657,9 +726,9 @@ func (downloader *Downloader) Download(data *extractors.Data) error {
 	if len(errs) > 0 {
 		return errs[0]
 	}
-	downloader.bar.Finish()
+	downloader.Bar.Finish()
 
-	if data.Type != extractors.DataTypeVideo {
+	if data.Type != extractors.DataTypeVideo || downloader.option.AudioOnly {
 		return nil
 	}
 
@@ -667,7 +736,26 @@ func (downloader *Downloader) Download(data *extractors.Data) error {
 		fmt.Printf("Merging video parts into %s\n", mergedFilePath)
 	}
 	if stream.Ext != "mp4" || stream.NeedMux {
-		return utils.MergeFilesWithSameExtension(parts, mergedFilePath)
+		if err := utils.MergeFilesWithSameExtension(parts, mergedFilePath); err != nil {
+			return err
+		}
+	} else {
+		if err := utils.MergeToMP4(parts, mergedFilePath, title); err != nil {
+			return err
+		}
 	}
-	return utils.MergeToMP4(parts, mergedFilePath, title)
+
+	if downloader.option.EmbedSubtitle && len(subtitlePaths) > 0 {
+		if !downloader.option.Silent {
+			fmt.Println("Embedding subtitles...")
+		}
+		if err := utils.EmbedSubtitles(mergedFilePath, subtitlePaths, subtitleLangs); err != nil {
+			return err
+		}
+		for _, path := range subtitleFilesToDelete {
+			os.Remove(path)
+		}
+	}
+
+	return nil
 }

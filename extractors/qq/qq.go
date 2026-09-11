@@ -3,6 +3,7 @@ package qq
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -23,7 +24,7 @@ type qqVideoInfo struct {
 			ID    int    `json:"id"`
 			Name  string `json:"name"`
 			Cname string `json:"cname"`
-			Fs    int    `json:"fs"`
+			Fs    int64  `json:"fs"`
 		} `json:"fi"`
 	} `json:"fl"`
 	Vl struct {
@@ -84,7 +85,7 @@ func genStreams(vid, cdn string, data qqVideoInfo) (map[string]*extractors.Strea
 	for _, fi := range data.Fl.Fi {
 		var fmtIDPrefix string
 		var fns []string
-		if utils.ItemInSlice(fi.Name, []string{"shd", "fhd"}) {
+		if slices.Contains([]string{"shd", "fhd"}, fi.Name) {
 			fmtIDPrefix = "p"
 			fmtIDName := fmt.Sprintf("%s%d", fmtIDPrefix, fi.ID%10000)
 			fns = []string{strings.Split(data.Vl.Vi[0].Fn, ".")[0], fmtIDName, "mp4"}

@@ -1,11 +1,13 @@
 <h1 align="center">Lux</h1>
 
+<p align="center"><i>Let there be Lux!</i></p>
+
 <div align="center">
   <a href="https://codecov.io/gh/iawia002/lux">
     <img src="https://img.shields.io/codecov/c/github/iawia002/lux.svg?style=flat-square" alt="Codecov">
   </a>
   <a href="https://github.com/iawia002/lux/actions">
-    <img src="https://img.shields.io/github/workflow/status/iawia002/lux/ci?style=flat-square" alt="GitHub Workflow Status">
+    <img src="https://img.shields.io/github/actions/workflow/status/iawia002/lux/ci.yml?style=flat-square" alt="GitHub Workflow Status">
   </a>
   <a href="https://goreportcard.com/report/github.com/iawia002/lux">
     <img src="https://goreportcard.com/badge/github.com/iawia002/lux?style=flat-square" alt="Go Report Card">
@@ -28,6 +30,7 @@
   - [Void Linux](#void-linux)
   - [Scoop on Windows](#scoop-on-windows)
   - [Chocolatey on Windows](#chocolatey-on-windows)
+  - [Cask on Windows/macOS/Linux](#cask-on-windowsmacoslinux)
 - [Getting Started](#getting-started)
   - [Download a video](#download-a-video)
   - [Download anything else](#download-anything-else)
@@ -55,6 +58,7 @@
 - [Supported Sites](#supported-sites)
 - [Known issues](#known-issues)
   - [优酷](#优酷)
+  - [西瓜/头条视频](#西瓜头条视频)
 - [Contributing](#contributing)
 - [Authors](#authors)
 - [Similar projects](#similar-projects)
@@ -108,6 +112,12 @@ $ scoop install lux
 
 ```
 $ choco install lux
+```
+
+### [Cask](https://github.com/axetroy/cask.rs) on Windows/macOS/Linux
+
+```sh
+$ cask install github.com/iawia002/lux
 ```
 
 ## Getting Started
@@ -331,9 +341,6 @@ As a text file:
 $ lux -c cookies.txt "https://www.bilibili.com/video/av20203945"
 ```
 
-If the `-c` is not set, `lux` will try to get the cookies from the current user's Chrome or Edge automatically.
-To use this feature, you need to shutdown your Chrome or Edge for only one time and let `lux` launch the browser for you.
-
 ### Proxy
 
 You can set the HTTP/SOCKS5 proxy using environment variables:
@@ -348,7 +355,15 @@ $ HTTP_PROXY="socks5://127.0.0.1:1080/" lux -i "https://www.youtube.com/watch?v=
 
 ### Multi-Thread
 
-Use `-n` option to set the number of download threads(default is 10, only works for multiple-parts video).
+Use `--multi-thread` or `-m` multiple threads to download single video.
+
+Use `--thread` or `-n` option to set the number of download threads(default is 10).
+
+> Note: If the video has multi fragment, the number of actual download threads will increase.
+>
+> For example:
+> * If `-n` is set to 10, and the video has 2 fragments, then 20 threads will actually be used.
+> * If the video has 20 fragments, only 10 fragments are downloaded in the same time, the actual threads count is 100.
 
 > **Special Tips:** Use too many threads in **mgtv** download will cause HTTP 403 error, we recommend setting the number of threads to **1**.
 
@@ -556,14 +571,18 @@ $ lux -j "https://www.bilibili.com/video/av20203945"
 #### Subtitle:
 
 ```
-  -C	Download captions
+  -C	Download subtitles
+  -C -items en,zh
+    	Download specific languages (YouTube only)
+  -C -items en,zh -embed 
+    	Embed subtitles into the video (YouTube only)
 ```
 
 #### Youku:
 
 ```
   -ccode string
-    	Youku ccode (default "0590")
+    	Youku ccode (default "0502")
   -ckey string
     	Youku ckey (default "7B19C0AB12633B22E7FE81271162026020570708D6CC189E4924503C49D243A0DE6CD84A766832C2C99898FC5ED31F3709BB3CDD82C96492E721BDD381735026")
   -password string
@@ -587,41 +606,54 @@ $ lux -j "https://www.bilibili.com/video/av20203945"
 
 ## Supported Sites
 
-| Site       | URL                          | 🎬 Videos | 🌁 Images | 🔊 Audio | 📚 Playlist | 🍪 VIP adaptation | Build Status                                                                                                                                                                |
-| ---------- | ---------------------------- | --------- | --------- | -------- | ----------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 抖音       | <https://www.douyin.com>     | ✓         | ✓         |          |             |                   | [![douyin](https://github.com/iawia002/lux/actions/workflows/stream_douyin.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_douyin.yml)             |
-| 哔哩哔哩   | <https://www.bilibili.com>   | ✓         |           |          | ✓           | ✓                 | [![bilibili](https://github.com/iawia002/lux/actions/workflows/stream_bilibili.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_bilibili.yml)       |
-| 半次元     | <https://bcy.net>            |           | ✓         |          |             |                   | [![bcy](https://github.com/iawia002/lux/actions/workflows/stream_bcy.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_bcy.yml)                      |
-| pixivision | <https://www.pixivision.net> |           | ✓         |          |             |                   | [![pixivision](https://github.com/iawia002/lux/actions/workflows/stream_pixivision.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_pixivision.yml) |
-| 优酷       | <https://www.youku.com>      | ✓         |           |          |             | ✓                 | [![youku](https://github.com/iawia002/lux/actions/workflows/stream_youku.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_youku.yml)                |
-| YouTube    | <https://www.youtube.com>    | ✓         |           |          | ✓           |                   | [![youtube](https://github.com/iawia002/lux/actions/workflows/stream_youtube.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_youtube.yml)          |
-| 爱奇艺     | <https://www.iqiyi.com>      | ✓         |           |          |             |                   | [![iqiyi](https://github.com/iawia002/lux/actions/workflows/stream_iqiyi.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_iqiyi.yml)                |
-| 芒果 TV    | <https://www.mgtv.com>       | ✓         |           |          |             |                   | [![mgtv](https://github.com/iawia002/lux/actions/workflows/stream_mgtv.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_mgtv.yml)                   |
-| 糖豆广场舞 | <https://www.tangdou.com>    | ✓         |           |          |             |                   | [![tangdou](https://github.com/iawia002/lux/actions/workflows/stream_tangdou.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_tangdou.yml)          |
-| Tumblr     | <https://www.tumblr.com>     | ✓         | ✓         |          |             |                   | [![tumblr](https://github.com/iawia002/lux/actions/workflows/stream_tumblr.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_tumblr.yml)             |
-| Vimeo      | <https://vimeo.com>          | ✓         |           |          |             |                   | [![vimeo](https://github.com/iawia002/lux/actions/workflows/stream_vimeo.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_vimeo.yml)                |
-| Facebook   | <https://facebook.com>       | ✓         |           |          |             |                   | [![facebook](https://github.com/iawia002/lux/actions/workflows/stream_facebook.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_facebook.yml)       |
-| 斗鱼视频   | <https://v.douyu.com>        | ✓         |           |          |             |                   | [![douyu](https://github.com/iawia002/lux/actions/workflows/stream_douyu.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_douyu.yml)                |
-| 秒拍       | <https://www.miaopai.com>    | ✓         |           |          |             |                   | [![miaopai](https://github.com/iawia002/lux/actions/workflows/stream_miaopai.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_miaopai.yml)          |
-| 微博       | <https://weibo.com>          | ✓         |           |          |             |                   | [![weibo](https://github.com/iawia002/lux/actions/workflows/stream_weibo.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_weibo.yml)                |
-| Instagram  | <https://www.instagram.com>  | ✓         | ✓         |          |             |                   | [![instagram](https://github.com/iawia002/lux/actions/workflows/stream_instagram.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_instagram.yml)    |
-| Twitter    | <https://twitter.com>        | ✓         |           |          |             |                   | [![twitter](https://github.com/iawia002/lux/actions/workflows/stream_twitter.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_twitter.yml)          |
-| 腾讯视频   | <https://v.qq.com>           | ✓         |           |          |             |                   | [![qq](https://github.com/iawia002/lux/actions/workflows/stream_qq.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_qq.yml)                         |
-| 网易云音乐 | <https://music.163.com>      | ✓         |           |          |             |                   | [![netease](https://github.com/iawia002/lux/actions/workflows/stream_netease.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_netease.yml)          |
-| 音悦台     | <https://yinyuetai.com>      | ✓         |           |          |             |                   | [![yinyuetai](https://github.com/iawia002/lux/actions/workflows/stream_yinyuetai.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_yinyuetai.yml)    |
-| 极客时间   | <https://time.geekbang.org>  | ✓         |           |          |             |                   | [![geekbang](https://github.com/iawia002/lux/actions/workflows/stream_geekbang.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_geekbang.yml)       |
-| Pornhub    | <https://pornhub.com>        | ✓         |           |          |             |                   | [![pornhub](https://github.com/iawia002/lux/actions/workflows/stream_pornhub.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_pornhub.yml)          |
-| XVIDEOS    | <https://xvideos.com>        | ✓         |           |          |             |                   | [![xvideos](https://github.com/iawia002/lux/actions/workflows/stream_xvideos.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_xvideos.yml)          |
-| 聯合新聞網 | <https://udn.com>            | ✓         |           |          |             |                   | [![udn](https://github.com/iawia002/lux/actions/workflows/stream_udn.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_udn.yml)                      |
-| TikTok     | <https://www.tiktok.com>     | ✓         |           |          |             |                   | [![tiktok](https://github.com/iawia002/lux/actions/workflows/stream_tiktok.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_tiktok.yml)             |
-| 好看视频   | <https://haokan.baidu.com>   | ✓         |           |          |             |                   | [![haokan](https://github.com/iawia002/lux/actions/workflows/stream_haokan.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_haokan.yml)             |
-| AcFun      | <https://www.acfun.cn>       | ✓         |           |          | ✓           |                   | [![acfun](https://github.com/iawia002/lux/actions/workflows/stream_acfun.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_acfun.yml)                |
-| Eporner    | <https://eporner.com>        | ✓         |           |          |             |                   | [![eporner](https://github.com/iawia002/lux/actions/workflows/stream_eporner.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_eporner.yml)          |
-| StreamTape | <https://streamtape.com>     | ✓         |           |          |             |                   | [![streamtape](https://github.com/iawia002/lux/actions/workflows/stream_streamtape.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_streamtape.yml) |
-| 虎扑       | <https://hupu.com>           | ✓         |           |          |             |                   | [![hupu](https://github.com/iawia002/lux/actions/workflows/stream_hupu.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_hupu.yml)                   |
-| 虎牙视频   | <https://v.huya.com>         | ✓         |           |          |             |                   | [![huya](https://github.com/iawia002/lux/actions/workflows/stream_huya.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_huya.yml)                   |
-| 喜马拉雅   | <https://www.ximalaya.com>   |           |           | ✓        |             |                   | [![ximalaya](https://github.com/iawia002/lux/actions/workflows/stream_ximalaya.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_ximalaya.yml)       |
-| 快手       | <https://www.kuaishou.com>   | ✓         |           |          |             |                   | [![kuaishou](https://github.com/iawia002/lux/actions/workflows/stream_kuaishou.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_kuaishou.yml)       |
+| Site             | URL                                                                       | 🎬 Videos | 🌁 Images | 🔊 Audio | 📚 Playlist | 🍪 VIP adaptation | Build Status                                                                                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------- | -------- | -------- | ------- | ---------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 抖音             | <https://www.douyin.com>                                                  | ✓        | ✓        |         |            |                  | [![douyin](https://github.com/iawia002/lux/actions/workflows/stream_douyin.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_douyin.yml)                   |
+| 哔哩哔哩         | <https://www.bilibili.com>                                                | ✓        |          |         | ✓          | ✓                | [![bilibili](https://github.com/iawia002/lux/actions/workflows/stream_bilibili.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_bilibili.yml)             |
+| 半次元           | <https://bcy.net>                                                         |          | ✓        |         |            |                  | [![bcy](https://github.com/iawia002/lux/actions/workflows/stream_bcy.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_bcy.yml)                            |
+| pixivision       | <https://www.pixivision.net>                                              |          | ✓        |         |            |                  | [![pixivision](https://github.com/iawia002/lux/actions/workflows/stream_pixivision.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_pixivision.yml)       |
+| 优酷             | <https://www.youku.com>                                                   | ✓        |          |         |            | ✓                | [![youku](https://github.com/iawia002/lux/actions/workflows/stream_youku.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_youku.yml)                      |
+| YouTube          | <https://www.youtube.com>                                                 | ✓        |          |         | ✓          |                  | [![youtube](https://github.com/iawia002/lux/actions/workflows/stream_youtube.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_youtube.yml)                |
+| 西瓜视频（头条） | <https://m.toutiao.com>, <https://v.ixigua.com>, <https://www.ixigua.com> | ✓        |          |         |            |                  | [![ixigua](https://github.com/iawia002/lux/actions/workflows/stream_ixigua.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_ixigua.yml)                   |
+| 爱奇艺           | <https://www.iqiyi.com>                                                   | ✓        |          |         |            |                  | [![iqiyi](https://github.com/iawia002/lux/actions/workflows/stream_iqiyi.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_iqiyi.yml)                      |
+| 新片场           | <https://www.xinpianchang.com>                                            | ✓        |          |         |            |                  | [![xinpianchang](https://github.com/iawia002/lux/actions/workflows/stream_xinpianchang.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_xinpianchang.yml) |
+| 芒果 TV          | <https://www.mgtv.com>                                                    | ✓        |          |         |            |                  | [![mgtv](https://github.com/iawia002/lux/actions/workflows/stream_mgtv.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_mgtv.yml)                         |
+| 糖豆广场舞       | <https://www.tangdou.com>                                                 | ✓        |          |         |            |                  | [![tangdou](https://github.com/iawia002/lux/actions/workflows/stream_tangdou.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_tangdou.yml)                |
+| Tumblr           | <https://www.tumblr.com>                                                  | ✓        | ✓        |         |            |                  | [![tumblr](https://github.com/iawia002/lux/actions/workflows/stream_tumblr.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_tumblr.yml)                   |
+| Vimeo            | <https://vimeo.com>                                                       | ✓        |          |         |            |                  | [![vimeo](https://github.com/iawia002/lux/actions/workflows/stream_vimeo.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_vimeo.yml)                      |
+| Facebook         | <https://facebook.com>                                                    | ✓        |          |         |            |                  | [![facebook](https://github.com/iawia002/lux/actions/workflows/stream_facebook.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_facebook.yml)             |
+| 斗鱼视频         | <https://v.douyu.com>                                                     | ✓        |          |         |            |                  | [![douyu](https://github.com/iawia002/lux/actions/workflows/stream_douyu.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_douyu.yml)                      |
+| 秒拍             | <https://www.miaopai.com>                                                 | ✓        |          |         |            |                  | [![miaopai](https://github.com/iawia002/lux/actions/workflows/stream_miaopai.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_miaopai.yml)                |
+| 微博             | <https://weibo.com>                                                       | ✓        |          |         |            |                  | [![weibo](https://github.com/iawia002/lux/actions/workflows/stream_weibo.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_weibo.yml)                      |
+| Instagram        | <https://www.instagram.com>                                               | ✓        | ✓        |         |            |                  | [![instagram](https://github.com/iawia002/lux/actions/workflows/stream_instagram.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_instagram.yml)          |
+| Threads        | <https://www.threads.net>                                               | ✓        | ✓        |         |            |                  | [![threads](https://github.com/iawia002/lux/actions/workflows/stream_threads.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_threads.yml)          |
+| Twitter          | <https://twitter.com>                                                     | ✓        |          |         |            |                  | [![twitter](https://github.com/iawia002/lux/actions/workflows/stream_twitter.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_twitter.yml)                |
+| 腾讯视频         | <https://v.qq.com>                                                        | ✓        |          |         |            |                  | [![qq](https://github.com/iawia002/lux/actions/workflows/stream_qq.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_qq.yml)                               |
+| 网易云音乐       | <https://music.163.com>                                                   | ✓        |          |         |            |                  | [![netease](https://github.com/iawia002/lux/actions/workflows/stream_netease.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_netease.yml)                |
+| 音悦台           | <https://yinyuetai.com>                                                   | ✓        |          |         |            |                  | [![yinyuetai](https://github.com/iawia002/lux/actions/workflows/stream_yinyuetai.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_yinyuetai.yml)          |
+| 极客时间         | <https://time.geekbang.org>                                               | ✓        |          |         |            |                  | [![geekbang](https://github.com/iawia002/lux/actions/workflows/stream_geekbang.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_geekbang.yml)             |
+| Pornhub          | <https://pornhub.com>                                                     | ✓        |          |         |            |                  | [![pornhub](https://github.com/iawia002/lux/actions/workflows/stream_pornhub.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_pornhub.yml)                |
+| XVIDEOS          | <https://xvideos.com>                                                     | ✓        |          |         |            |                  | [![xvideos](https://github.com/iawia002/lux/actions/workflows/stream_xvideos.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_xvideos.yml)                |
+| 聯合新聞網       | <https://udn.com>                                                         | ✓        |          |         |            |                  | [![udn](https://github.com/iawia002/lux/actions/workflows/stream_udn.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_udn.yml)                            |
+| TikTok           | <https://www.tiktok.com>                                                  | ✓        |          |         |            |                  | [![tiktok](https://github.com/iawia002/lux/actions/workflows/stream_tiktok.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_tiktok.yml)                   |
+| Pinterest        | <https://www.pinterest.com>                                               | ✓        |          |         |            |                  | [![pinterest](https://github.com/iawia002/lux/actions/workflows/stream_pinterest.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_pinterest.yml)          |
+| 好看视频         | <https://haokan.baidu.com>                                                | ✓        |          |         |            |                  | [![haokan](https://github.com/iawia002/lux/actions/workflows/stream_haokan.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_haokan.yml)                   |
+| AcFun            | <https://www.acfun.cn>                                                    | ✓        |          |         | ✓          |                  | [![acfun](https://github.com/iawia002/lux/actions/workflows/stream_acfun.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_acfun.yml)                      |
+| Eporner          | <https://eporner.com>                                                     | ✓        |          |         |            |                  | [![eporner](https://github.com/iawia002/lux/actions/workflows/stream_eporner.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_eporner.yml)                |
+| StreamTape       | <https://streamtape.com>                                                  | ✓        |          |         |            |                  | [![streamtape](https://github.com/iawia002/lux/actions/workflows/stream_streamtape.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_streamtape.yml)       |
+| 虎扑             | <https://hupu.com>                                                        | ✓        |          |         |            |                  | [![hupu](https://github.com/iawia002/lux/actions/workflows/stream_hupu.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_hupu.yml)                         |
+| 虎牙视频         | <https://v.huya.com>                                                      | ✓        |          |         |            |                  | [![huya](https://github.com/iawia002/lux/actions/workflows/stream_huya.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_huya.yml)                         |
+| 喜马拉雅         | <https://www.ximalaya.com>                                                |          |          | ✓       |            |                  | [![ximalaya](https://github.com/iawia002/lux/actions/workflows/stream_ximalaya.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_ximalaya.yml)             |
+| 快手             | <https://www.kuaishou.com>                                                | ✓        |          |         |            |                  | [![kuaishou](https://github.com/iawia002/lux/actions/workflows/stream_kuaishou.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_kuaishou.yml)             |
+| Reddit           | <https://www.reddit.com>                                                  | ✓        | ✓        |         |            |                  | [![reddit](https://github.com/iawia002/lux/actions/workflows/stream_reddit.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_reddit.yml)                   |
+| VKontakte        | <https://vk.com>                                                          | ✓        |          |         |            |                  | [![vk](https://github.com/iawia002/lux/actions/workflows/stream_vk.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_vk.yml/)                              |
+| 知乎             | <https://zhihu.com>                                                       | ✓        |          |         |            |                  | [![zhihu](https://github.com/iawia002/lux/actions/workflows/stream_zhihu.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_zhihu.yml/)                     |
+| Rumble           | <https://rumble.com>                                                      | ✓        |          |         |            |                  | [![rumble](https://github.com/iawia002/lux/actions/workflows/stream_rumble.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_rumble.yml/)                  |
+| 小红书           | <https://xiaohongshu.com>                                                 | ✓        |          |         |            |                  | [![xiaohongshu](https://github.com/iawia002/lux/actions/workflows/stream_xiaohongshu.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_xiaohongshu.yml/)   |
+| Zing MP3         | <https://zingmp3.vn>                                                      | ✓        |          | ✓       |            |                  | [![zingmp3](https://github.com/iawia002/lux/actions/workflows/stream_zingmp3.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_zingmp3.yml/)               |
+| Bitchute         | <https://www.bitchute.com>                                                | ✓        |          |         |            |                  | [![bitchute](https://github.com/iawia002/lux/actions/workflows/stream_bitchute.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_bitchute.yml/)            |
+| Odysee         | <https://odysee.com>                                                | ✓        |          | ✓       |            |                  | [![odysee](https://github.com/iawia002/lux/actions/workflows/stream_odysee.yml/badge.svg)](https://github.com/iawia002/lux/actions/workflows/stream_odysee.yml/)            |
+
 
 ## Known issues
 
@@ -631,13 +663,16 @@ $ lux -j "https://www.bilibili.com/video/av20203945"
 
 最好是每次下载都附带登录过的 Cookie 以避免部分 `ccode` 的问题
 
+### 西瓜/头条视频
+西瓜/头条视频必须带 Cookie 才能下载成功，西瓜和头条可共用西瓜视频的 Cookie，Cookie 的有效期可能较短，下载失败就更新 Cookie 尝试：
+
+```
+$ lux -c "msToken=yoEh0-qLUq4obZ8Sfxsem_CxCo9R3NM6ViTrWaRcM1...; ttwid=1%7C..." "https://m.toutiao.com/is/iYbTfJ79/"
+```
+
 ## Contributing
 
 Lux is an open source project and built on the top of open-source projects. Check out the [Contributing Guide](./CONTRIBUTING.md) to get started.
-
-Thanks for [JetBrains](https://www.jetbrains.com/?from=lux) for the wonderful IDE.
-
-<a href="https://www.jetbrains.com/?from=lux"><img src="static/jetbrains-variant-3.svg" /></a>
 
 ## Authors
 
@@ -645,6 +680,7 @@ Code with ❤️ by [iawia002](https://github.com/iawia002) and lovely [contribu
 
 ## Similar projects
 
+- [youtube](https://github.com/kkdai/youtube)
 - [youtube-dl](https://github.com/rg3/youtube-dl)
 - [you-get](https://github.com/soimort/you-get)
 - [ytdl](https://github.com/rylio/ytdl)

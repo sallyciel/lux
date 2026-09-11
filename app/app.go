@@ -4,27 +4,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sort"
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/go-rod/rod"
 	"github.com/urfave/cli/v2"
 
-	"github.com/iawia002/lux/cookier"
 	"github.com/iawia002/lux/downloader"
 	"github.com/iawia002/lux/extractors"
 	"github.com/iawia002/lux/request"
 	"github.com/iawia002/lux/utils"
 )
 
-const (
-	// Name is the name of this app.
-	Name    = "lux"
-	version = "v0.13.0"
-)
+// Name is the name of this app.
+const Name = "lux"
+
+// This value will be injected into the corresponding git tag value at build time using `-ldflags`.
+var version = "v0.0.0"
 
 func init() {
 	cli.VersionPrinter = func(c *cli.Context) {
@@ -92,6 +89,11 @@ func New() *cli.App {
 				Aliases: []string{"f"},
 				Usage:   "Select specific stream to download",
 			},
+			&cli.BoolFlag{
+				Name:    "audio-only",
+				Aliases: []string{"ao"},
+				Usage:   "Download audio only at best quality",
+			},
 			&cli.StringFlag{
 				Name:    "file",
 				Aliases: []string{"F"},
@@ -116,6 +118,11 @@ func New() *cli.App {
 				Name:    "caption",
 				Aliases: []string{"C"},
 				Usage:   "Download captions",
+			},
+			&cli.BoolFlag{
+				Name:    "embed-subtitle",
+				Aliases: []string{"embed"},
+				Usage:   "Embed subtitles into the video (requires ffmpeg)",
 			},
 
 			&cli.UintFlag{
@@ -180,7 +187,7 @@ func New() *cli.App {
 			&cli.StringFlag{
 				Name:    "youku-ccode",
 				Aliases: []string{"ccode"},
-				Value:   "0532",
+				Value:   "0502",
 				Usage:   "Youku ccode",
 			},
 			&cli.StringFlag{
@@ -228,17 +235,12 @@ func New() *cli.App {
 				// If cookie is a file path, convert it to a string to ensure cookie is always string
 				if _, fileErr := os.Stat(cookie); fileErr == nil {
 					// Cookie is a file
-					data, err := ioutil.ReadFile(cookie)
+					data, err := os.ReadFile(cookie)
 					if err != nil {
 						return err
 					}
 					cookie = strings.TrimSpace(string(data))
 				}
-			} else {
-				// Try to use current user's cookie if possible, if failed empty cookie will be used
-				_ = rod.Try(func() {
-					cookie = cookier.Get(args...)
-				})
 			}
 
 			request.SetOptions(request.Options{
@@ -294,11 +296,13 @@ func download(c *cli.Context, videoURL string) error {
 	}
 
 	if c.Bool("json") {
-		jsonData, err := json.MarshalIndent(data, "", "\t")
-		if err != nil {
+		e := json.NewEncoder(os.Stdout)
+		e.SetIndent("", "\t")
+		e.SetEscapeHTML(false)
+		if err := e.Encode(data); err != nil {
 			return err
 		}
-		fmt.Printf("%s\n", jsonData)
+
 		return nil
 	}
 
@@ -306,11 +310,13 @@ func download(c *cli.Context, videoURL string) error {
 		Silent:         c.Bool("silent"),
 		InfoOnly:       c.Bool("info"),
 		Stream:         c.String("stream-format"),
+		AudioOnly:      c.Bool("audio-only"),
 		Refer:          c.String("refer"),
 		OutputPath:     c.String("output-path"),
 		OutputName:     c.String("output-name"),
 		FileNameLength: int(c.Uint("file-name-length")),
 		Caption:        c.Bool("caption"),
+		EmbedSubtitle:  c.Bool("embed-subtitle"),
 		MultiThread:    c.Bool("multi-thread"),
 		ThreadNumber:   int(c.Uint("thread")),
 		RetryTimes:     int(c.Uint("retry")),

@@ -2,7 +2,10 @@ package youtube
 
 import (
 	"fmt"
+	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/kkdai/youtube/v2"
 	"github.com/pkg/errors"
@@ -27,7 +30,13 @@ type extractor struct {
 // New returns a youtube extractor.
 func New() extractors.Extractor {
 	return &extractor{
-		client: &youtube.Client{},
+		client: &youtube.Client{
+			HTTPClient: &http.Client{
+				Transport: &http.Transport{
+					Proxy: http.ProxyFromEnvironment,
+				},
+			},
+		},
 	}
 }
 
@@ -38,7 +47,19 @@ func (e *extractor) Extract(url string, option extractors.Options) ([]*extractor
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		return []*extractors.Data{e.youtubeDownload(url, video)}, nil
+		data := e.youtubeDownload(url, video)
+		if option.Items != "" {
+			// If it is not a playlist, we can use the Items option to filter the subtitles.
+			filteredCaptions := make(map[string]*extractors.CaptionPart)
+			items := strings.Split(option.Items, ",")
+			for k, v := range data.Captions {
+				if slices.Contains(items, k) {
+					filteredCaptions[k] = v
+				}
+			}
+			data.Captions = filteredCaptions
+		}
+		return []*extractors.Data{data}, nil
 	}
 
 	playlist, err := e.client.GetPlaylist(url)
@@ -51,7 +72,7 @@ func (e *extractor) Extract(url string, option extractors.Options) ([]*extractor
 	wgp := utils.NewWaitGroupPool(option.ThreadNumber)
 	dataIndex := 0
 	for index, videoEntry := range playlist.Videos {
-		if !utils.ItemInSlice(index+1, needDownloadItems) {
+		if !slices.Contains(needDownloadItems, index+1) {
 			continue
 		}
 
@@ -119,12 +140,23 @@ func (e *extractor) youtubeDownload(url string, video *youtube.Video) *extractor
 		streams[itag] = stream
 	}
 
+	captions := make(map[string]*extractors.CaptionPart)
+	for _, c := range video.CaptionTracks {
+		captions[c.LanguageCode] = &extractors.CaptionPart{
+			Part: extractors.Part{
+				URL: c.BaseURL,
+				Ext: c.LanguageCode + ".xml",
+			},
+		}
+	}
+
 	return &extractors.Data{
-		Site:    "YouTube youtube.com",
-		Title:   video.Title,
-		Type:    "video",
-		Streams: streams,
-		URL:     url,
+		Site:     "YouTube youtube.com",
+		Title:    video.Title,
+		Type:     "video",
+		Streams:  streams,
+		Captions: captions,
+		URL:      url,
 	}
 }
 
